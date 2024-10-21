@@ -1,0 +1,139 @@
+using System;
+using System.Drawing;
+using System.Linq;
+using System.Media;
+using System.Reflection.Emit;
+using System.Windows.Forms;
+using static System.Net.Mime.MediaTypeNames;
+
+namespace TelephoneKeypad
+{
+    public partial class KeypadForm : Form
+    {
+        private Timer labelTimer = new Timer();
+        private Timer clickTimer = new Timer();
+        private Random random = new Random();
+        private string[] letters;
+        private string generatedPassword = "";
+        private string userPassword = "";
+        private int clickDelay = 750;
+        private int labelDelay = 100;
+
+        public KeypadForm()
+        {
+            InitializeComponent();
+            this.Text = "Telephone Keypad";
+            this.FormBorderStyle = FormBorderStyle.FixedDialog;
+            this.MaximizeBox = false;
+            this.MinimizeBox = false;
+
+            LoadLetters();
+            CreateLayout();
+            StartLabelTimer();
+        }
+
+        private void LoadLetters()
+        {
+            letters = System.IO.File.ReadAllText("letters.txt").Split(',');
+        }
+
+        private void CreateLayout()
+        {
+            TableLayoutPanel panel = new TableLayoutPanel
+            {
+                RowCount = 5,
+                ColumnCount = 3,
+                Dock = DockStyle.Fill,
+                AutoSize = true
+            };
+            this.Controls.Add(panel);
+
+            for (int i = 0; i < 15; i++)
+            {
+                Label lbl = new Label
+                {
+                    Text = "",
+                    BackColor = Color.Black,
+                    ForeColor = Color.White,
+                    Dock = DockStyle.Fill,
+                    TextAlign = ContentAlignment.MiddleCenter,
+                    Font = new Font("Arial", 24, FontStyle.Bold),
+                    BorderStyle = BorderStyle.FixedSingle
+                };
+                lbl.Click += new EventHandler(Label_Click);
+                panel.Controls.Add(lbl);
+            }
+        }
+
+        private void StartLabelTimer()
+        {
+            labelTimer.Interval = labelDelay;
+            labelTimer.Tick += PopulateLabels;
+            labelTimer.Start();
+        }
+
+        private void PopulateLabels(object sender, EventArgs e)
+        {
+            labelTimer.Stop();
+            var labels = this.Controls.OfType<TableLayoutPanel>().First().Controls.OfType<Label>();
+            var randomLetters = letters.OrderBy(x => random.Next()).Take(15).ToArray();
+            generatedPassword = new string(randomLetters.Take(6).ToArray());
+
+            int index = 0;
+            foreach (Label lbl in labels)
+            {
+                lbl.Text = randomLetters[index].ToString();
+                lbl.ForeColor = Color.Red;
+                index++;
+            }
+        }
+
+        private void Label_Click(object sender, EventArgs e)
+        {
+            Label lbl = sender as Label;
+
+            if (clickTimer.Enabled) return;
+
+            userPassword += lbl.Text;
+            lbl.BackColor = Color.Yellow;
+
+            SystemSounds.Beep.Play();
+
+            clickTimer.Interval = clickDelay;
+            clickTimer.Tick += ClickDelay;
+            clickTimer.Start();
+
+            if (userPassword.Length == 6)
+            {
+                CheckPassword();
+            }
+        }
+
+        private void ClickDelay(object sender, EventArgs e)
+        {
+            clickTimer.Stop();
+        }
+
+        private void CheckPassword()
+        {
+            if (userPassword == generatedPassword)
+            {
+                MessageBox.Show("Password Match!", "Success");
+            }
+            else
+            {
+                MessageBox.Show("Password Does Not Match!", "Failure");
+            }
+
+            DialogResult result = MessageBox.Show("Do you want to restart the program?", "Restart", MessageBoxButtons.YesNo);
+            if (result == DialogResult.Yes)
+            {
+                Application.Restart();
+            }
+            else
+            {
+                this.Close();
+            }
+        }
+    }
+}
